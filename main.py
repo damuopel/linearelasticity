@@ -19,6 +19,21 @@ def Mesh(eSize,xElms,yElms):
     
     return Topology,XY
 
+def ShapeFunctions(Xi,Eta):
+    return N
+
+def Integration(Topology,XY):
+    elms = Topology.size/Topology.ndim
+    xyGPI = np.array()
+    hGPI = np.array()
+    # Same stiffness matrix per element
+        
+    return K,F
+
+def Solver(K,F):
+    
+    return u
+
 if __name__ == '__main__':
     # Input User
     eSize = 1
@@ -26,3 +41,5 @@ if __name__ == '__main__':
     yElms = 2
 	# Create Mesh
     Topology,XY = Mesh(eSize,xElms,yElms)
+    K,F = Integration(Topology,XY)
+    u = Solver(K,F)
