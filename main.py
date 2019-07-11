@@ -1,4 +1,5 @@
 import numpy as np
+from numpy.linalg import inv,det
 import math
 
 def Mesh(eSize,xElms,yElms):
@@ -16,31 +17,49 @@ def Mesh(eSize,xElms,yElms):
     node3 = node2 + xElms + 1
     node4 = node1 + xElms + 1
     Topology = np.array([node1,node2,node3,node4])
-    
+
     return Topology,XY
 
 def ShapeFunctions(Xi,Eta,dFlag):
-	if dFlag:
-		
-	else:
-		N1 = 0.25*(1-Xi)*(1-Eta)
-		N2 = 0.25*(1+Xi)*(1-Eta)
-		N3 = 0.25*(1+Xi)*(1+Eta)
-		N4 = 0.25*(1-Xi)*(1+Eta)
-		N = np.array(N1,N2,N3,N4)
-
+    if dFlag==1:
+        dN1dXi = -0.25*(1-Eta)
+        dN1dEta = -0.25*(1-Xi)
+        dN2dXi = 0.25*(1-Eta)
+        dN2dEta = -0.25*(1+Xi)
+        dN3dXi = 0.25*(1+Eta)
+        dN3dEta = 0.25*(1+Xi)
+        dN4dXi = -0.25*(1+Eta)
+        dN4dEta = 0.25*(1-Xi)
+        N = np.array([[dN1dXi,dN2dXi,dN3dXi,dN4dXi],[dN1dEta,dN2dEta,dN3dEta,dN4dEta]])
+    else:
+        N1 = 0.25*(1-Xi)*(1-Eta)
+        N2 = 0.25*(1+Xi)*(1-Eta)
+        N3 = 0.25*(1+Xi)*(1+Eta)
+        N4 = 0.25*(1-Xi)*(1+Eta)
+        N = np.array([N1,N2,N3,N4])
+            
     return N
 
 def Integration(Topology,XY):
-    elms = Topology.size/Topology.ndim
-    xyGPI = np.array([-0.5774,-0.5774,0.5774,0.5774],[-0.5774,0.5774,-0.5774,0.5774])
+    xyGPI = np.array([[-0.5774,-0.5774,0.5774,0.5774],[-0.5774,0.5774,-0.5774,0.5774]])
     hGPI = np.array([1,1,1,1])
-    # Same stiffness matrix per element
-        
+    refNodes = Topology[:,0]-1 # Pick a reference element
+    refVerts = XY[:,refNodes]
+    Ke = 0
+    for iGP in range(4):
+        Xi = xyGPI[0,iGP]
+        Eta = xyGPI[1,iGP]
+        H = hGPI[iGP]
+        dNl = ShapeFunctions(Xi,Eta,1)
+        Jacobian = refVerts@dNl.T
+        dNg = inv(Jacobian)@dNl
+        B = np.array([[dNg[0,0],0,dNg[0,1],0,dNg[0,2],0,dNg[0,3],0],[0,dNg[1,0],0,dNg[1,1],0,dNg[1,2],0,dNg[1,3]],[dNg[1,0],dNg[0,0],dNg[1,1],dNg[0,1],dNg[1,2],dNg[0,2],dNg[1,3],dNg[0,3]]])
+        Ke = Ke + B.T@D@B*det(Jacobian)*H     
+
     return K,F
 
 def Solver(K,F):
-    
+
     return u
 
 if __name__ == '__main__':
