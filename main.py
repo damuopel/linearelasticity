@@ -19,13 +19,22 @@ def Mesh(eSize,xElms,yElms):
     
     return Topology,XY
 
-def ShapeFunctions(Xi,Eta):
+def ShapeFunctions(Xi,Eta,dFlag):
+	if dFlag:
+		
+	else:
+		N1 = 0.25*(1-Xi)*(1-Eta)
+		N2 = 0.25*(1+Xi)*(1-Eta)
+		N3 = 0.25*(1+Xi)*(1+Eta)
+		N4 = 0.25*(1-Xi)*(1+Eta)
+		N = np.array(N1,N2,N3,N4)
+
     return N
 
 def Integration(Topology,XY):
     elms = Topology.size/Topology.ndim
-    xyGPI = np.array()
-    hGPI = np.array()
+    xyGPI = np.array([-0.5774,-0.5774,0.5774,0.5774],[-0.5774,0.5774,-0.5774,0.5774])
+    hGPI = np.array([1,1,1,1])
     # Same stiffness matrix per element
         
     return K,F
