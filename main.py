@@ -1,6 +1,6 @@
 import numpy as np
 from numpy.linalg import inv,det
-import math
+from math import floor
 
 def Mesh(eSize,xElms,yElms):
     # Coordinates
@@ -12,7 +12,7 @@ def Mesh(eSize,xElms,yElms):
     X,Y = np.meshgrid(x,y)
     XY = np.array([X.flatten(),Y.flatten()])
     # Topology
-    node1 = np.array([iElm+math.ceil(iElm/xElms)-1 for iElm in list(range(1,xElms*yElms+1))])
+    node1 = np.array([iElm+floor(iElm/xElms) for iElm in range(xElms*yElms)])
     node2 = node1 + 1
     node3 = node2 + xElms + 1
     node4 = node1 + xElms + 1
@@ -40,10 +40,18 @@ def ShapeFunctions(Xi,Eta,dFlag):
             
     return N
 
-def Integration(Topology,XY):
+def D_Matrix(E,nu):
+    # PLain Stress
+    D = (E/(1-nu**2))*np.array([[1,nu,0],[nu,1,0],[0,0,(1-nu)/2]])
+    
+    return D
+
+def K_Matrix(Topology,XY,D):
+    # Integration
+    # Initialize some variables
     xyGPI = np.array([[-0.5774,-0.5774,0.5774,0.5774],[-0.5774,0.5774,-0.5774,0.5774]])
     hGPI = np.array([1,1,1,1])
-    refNodes = Topology[:,0]-1 # Pick a reference element
+    refNodes = Topology[:,0]# Pick a reference element (are the same)
     refVerts = XY[:,refNodes]
     Ke = 0
     for iGP in range(4):
@@ -54,12 +62,32 @@ def Integration(Topology,XY):
         Jacobian = refVerts@dNl.T
         dNg = inv(Jacobian)@dNl
         B = np.array([[dNg[0,0],0,dNg[0,1],0,dNg[0,2],0,dNg[0,3],0],[0,dNg[1,0],0,dNg[1,1],0,dNg[1,2],0,dNg[1,3]],[dNg[1,0],dNg[0,0],dNg[1,1],dNg[0,1],dNg[1,2],dNg[0,2],dNg[1,3],dNg[0,3]]])
-        Ke = Ke + B.T@D@B*det(Jacobian)*H     
+        Ke = Ke + B.T@D@B*det(Jacobian)*H  
+    # Assembly
+    elms = int(Topology.size/4) # 4 nodes per element 
+    dofs = int(XY.size/2)*2 # 2 different coordinates -- 2 dofs/node
+    K = np.zeros((dofs,dofs))
+    for iElm in range(elms):
+        iNodes = Topology[:,iElm]
+        iDofs = 2*np.array(iNodes)
+        iDofs = np.array([iDofs,iDofs+1]).T.flatten()
+        iDofsX,iDofsY = np.meshgrid(iDofs,iDofs)
+        K[iDofsX,iDofsY] = K[iDofsX,iDofsY] + Ke
+        
+    return K
 
-    return K,F
+def F_Array(Topology,XY):
+    # Punctual Force
+    maxValues = XY.max(1)
+    xMax = XY[0,:]==maxValues[0]
+    minValues = XY.min(1)
+    yMin = XY[1,:]==minValues[1]
+    node = np.where(np.logical_and(xMax,yMin))[0]
+    return F    
 
 def Solver(K,F):
-
+    u = inv(K)@F
+    
     return u
 
 if __name__ == '__main__':
@@ -67,7 +95,11 @@ if __name__ == '__main__':
     eSize = 1
     xElms = 3
     yElms = 2
+    E = 2.1e11
+    nu = 0.3
 	# Create Mesh
     Topology,XY = Mesh(eSize,xElms,yElms)
-    K,F = Integration(Topology,XY)
+    D = D_Matrix(E,nu)
+    K = K_Matrix(Topology,XY,D)
+    F = F_Array(Topology,XY)
     u = Solver(K,F)
