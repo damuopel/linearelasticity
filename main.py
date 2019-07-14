@@ -77,16 +77,43 @@ def K_Matrix(Topology,XY,D):
     return K
 
 def F_Array(Topology,XY):
-    # Punctual Force
-    maxValues = XY.max(1)
-    xMax = XY[0,:]==maxValues[0]
-    minValues = XY.min(1)
-    yMin = XY[1,:]==minValues[1]
-    node = np.where(np.logical_and(xMax,yMin))[0]
+    dofs = int(XY.size/2)*2
+    F = np.zeros((dofs,1))
+    Case = 'Puntual Force'
+    if Case == 'Puntual Force':
+        # Punctual Force
+        maxValues = XY.max(1)
+        xMax = XY[0,:]==maxValues[0]
+        minValues = XY.min(1)
+        yMin = XY[1,:]==minValues[1]
+        nodes = np.arange(int(XY.size/2))
+        forceNodes = nodes[np.where(np.logical_and(xMax,yMin))]
+        forceDofs = np.array([2*forceNodes,2*forceNodes+1])
+        fx = 0
+        fy = -1
+        F[forceDofs[0,:]] = fx
+        F[forceDofs[1,:]] = fy
+        
     return F    
 
-def Solver(K,F):
-    u = inv(K)@F
+def Solver(K,F,Topology,XY):
+    dofs = int(XY.size/2)*2
+    totalDofs = np.arange(dofs)
+    Case = 'Clamp'
+    if Case == 'Clamp':
+        minValues = XY.min(1)
+        xMin = XY[0,:]==minValues[0]
+        restNodes = np.where(xMin)[0]
+        restDofs = np.array([2*restNodes,2*restNodes+1]).T.flatten()
+        uRest = np.zeros(restDofs.size)
+        freeDofs = np.setdiff1d(totalDofs,restDofs)
+        
+    freeDofsX,freeDofsY = np.meshgrid(freeDofs,freeDofs)
+    frDofsX,frDofsY = np.meshgrid(restDofs,freeDofs)
+    u = np.zeros((dofs,1))
+    uFree = inv(K[freeDofs,freeDofs])@(F[freeDofs]-K[frDofsX,frDofsY]*uRest.T)
+    u[freeDofs] = uFree
+    u[restDofs] = uRest
     
     return u
 
@@ -102,4 +129,4 @@ if __name__ == '__main__':
     D = D_Matrix(E,nu)
     K = K_Matrix(Topology,XY,D)
     F = F_Array(Topology,XY)
-    u = Solver(K,F)
+    u = Solver(K,F,Topology,XY)
