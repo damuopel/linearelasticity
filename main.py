@@ -46,7 +46,7 @@ def D_Matrix(E,nu):
     
     return D
 
-def K_Matrix(Topology,XY,D):
+def K_Matrix(Topology,XY,D,thickness):
     # Integration
     # Initialize some variables
     xyGPI = np.array([[-0.5774,-0.5774,0.5774,0.5774],[-0.5774,0.5774,-0.5774,0.5774]])
@@ -62,7 +62,7 @@ def K_Matrix(Topology,XY,D):
         Jacobian = refVerts@dNl.T
         dNg = inv(Jacobian)@dNl
         B = np.array([[dNg[0,0],0,dNg[0,1],0,dNg[0,2],0,dNg[0,3],0],[0,dNg[1,0],0,dNg[1,1],0,dNg[1,2],0,dNg[1,3]],[dNg[1,0],dNg[0,0],dNg[1,1],dNg[0,1],dNg[1,2],dNg[0,2],dNg[1,3],dNg[0,3]]])
-        Ke = Ke + B.T@D@B*det(Jacobian)*H  
+        Ke = Ke + thickness*B.T@D@B*det(Jacobian)*H  
     # Assembly
     elms = int(Topology.size/4) # 4 nodes per element 
     dofs = int(XY.size/2)*2 # 2 different coordinates -- 2 dofs/node
@@ -124,9 +124,10 @@ if __name__ == '__main__':
     yElms = 2
     E = 2.1e11
     nu = 0.3
+    thickness = 0.1
 	# Create Mesh
     Topology,XY = Mesh(eSize,xElms,yElms)
     D = D_Matrix(E,nu)
-    K = K_Matrix(Topology,XY,D)
+    K = K_Matrix(Topology,XY,D,thickness)
     F = F_Array(Topology,XY)
     u = Solver(K,F,Topology,XY)
