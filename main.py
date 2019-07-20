@@ -1,6 +1,7 @@
 import numpy as np
 from numpy.linalg import inv,det
 from math import floor
+import matplotlib.pyplot as plt
 
 def Mesh(eSize,xElms,yElms):
     # Coordinates
@@ -66,7 +67,7 @@ def K_Matrix(Topology,XY,D,thickness):
     # Assembly
     elms = int(Topology.size/4) # 4 nodes per element 
     dofs = int(XY.size/2)*2 # 2 different coordinates -- 2 dofs/node
-    K = np.zeros((dofs,dofs))
+    K = np.zeros((dofs,dofs)) # MEMORY LIMIT --> FIX
     for iElm in range(elms):
         iNodes = Topology[:,iElm]
         iDofs = 2*np.array(iNodes)
@@ -90,7 +91,7 @@ def F_Array(Topology,XY):
         forceNodes = nodes[np.where(np.logical_and(xMax,yMin))]
         forceDofs = np.array([2*forceNodes,2*forceNodes+1])
         fx = 0
-        fy = -1
+        fy = -1000000
         F[forceDofs[0,:]] = fx
         F[forceDofs[1,:]] = fy
         
@@ -105,13 +106,13 @@ def Solver(K,F,Topology,XY):
         xMin = XY[0,:]==minValues[0]
         restNodes = np.where(xMin)[0]
         restDofs = np.array([2*restNodes,2*restNodes+1]).T.flatten()
-        uRest = np.zeros(restDofs.size)
+        uRest = np.zeros((restDofs.size,1))
         freeDofs = np.setdiff1d(totalDofs,restDofs)
         
     freeDofsX,freeDofsY = np.meshgrid(freeDofs,freeDofs)
     frDofsX,frDofsY = np.meshgrid(restDofs,freeDofs)
     u = np.zeros((dofs,1))
-    uFree = inv(K[freeDofs,freeDofs])@(F[freeDofs]-K[frDofsX,frDofsY]*uRest.T)
+    uFree = inv(K[freeDofsX,freeDofsY])@(F[freeDofs]-K[frDofsX,frDofsY]@uRest)
     u[freeDofs] = uFree
     u[restDofs] = uRest
     
@@ -120,8 +121,8 @@ def Solver(K,F,Topology,XY):
 if __name__ == '__main__':
     # Input User
     eSize = 1
-    xElms = 3
-    yElms = 2
+    xElms = 100
+    yElms = 20
     E = 2.1e11
     nu = 0.3
     thickness = 0.1
@@ -131,3 +132,28 @@ if __name__ == '__main__':
     K = K_Matrix(Topology,XY,D,thickness)
     F = F_Array(Topology,XY)
     u = Solver(K,F,Topology,XY)
+    # Post Process Data
+    # Stresses
+    # Plot Results
+    dofs = int(XY.size/2)*2
+    xDofs = np.arange(0,dofs,2)
+    yDofs = np.arange(1,dofs,2)
+    xDisp = u[xDofs]
+    yDisp = u[yDofs]
+    disp = (xDisp**2+yDisp**2)**(0.5)
+    x = XY[0,:].reshape(yElms+1,xElms+1)
+    y = XY[1,:].reshape(yElms+1,xElms+1)
+    plt.pcolor(x,y,disp.reshape(yElms+1,xElms+1))
+    plt.colorbar()
+    plt.xlim(0,xElms*eSize)
+    plt.ylim(0,yElms*eSize)
+    plt.axis('equal')
+    plt.axis('off')
+    plt.show()
+    
+    
+    
+    
+    
+    
+    
