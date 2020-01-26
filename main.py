@@ -161,11 +161,4 @@ if __name__ == '__main__':
     plt.ylim(0,yElms*eSize)
     plt.axis('equal')
     plt.axis('off')
-    plt.show()
-    
-    
-    
-    
-    
-    
-    
+    plt.show() 
