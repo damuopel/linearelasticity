@@ -2,6 +2,7 @@ import numpy as np
 from numpy.linalg import inv,det
 from math import floor
 import matplotlib.pyplot as plt
+from scipy.sparse import coo_matrix,linalg
 
 def Mesh(eSize,xElms,yElms):
     # Coordinates
@@ -49,6 +50,9 @@ def D_Matrix(E,nu):
 
 def K_Matrix(Topology,XY,D,thickness):
     # Integration
+    allDofs = int(XY.size/2)*2
+    nElms = int(Topology.size/4)
+    dofsElements = 8
     # Initialize some variables
     xyGPI = np.array([[-0.5774,-0.5774,0.5774,0.5774],[-0.5774,0.5774,-0.5774,0.5774]])
     hGPI = np.array([1,1,1,1])
@@ -63,17 +67,25 @@ def K_Matrix(Topology,XY,D,thickness):
         Jacobian = refVerts@dNl.T
         dNg = inv(Jacobian)@dNl
         B = np.array([[dNg[0,0],0,dNg[0,1],0,dNg[0,2],0,dNg[0,3],0],[0,dNg[1,0],0,dNg[1,1],0,dNg[1,2],0,dNg[1,3]],[dNg[1,0],dNg[0,0],dNg[1,1],dNg[0,1],dNg[1,2],dNg[0,2],dNg[1,3],dNg[0,3]]])
-        Ke = Ke + thickness*B.T@D@B*det(Jacobian)*H  
+        BtD = np.dot(B.T,D)
+        Ke = Ke + thickness*np.dot(BtD,B)*det(Jacobian)*H  
     # Assembly
-    elms = int(Topology.size/4) # 4 nodes per element 
-    dofs = int(XY.size/2)*2 # 2 different coordinates -- 2 dofs/node
-    K = np.zeros((dofs,dofs)) # MEMORY LIMIT --> FIX
-    for iElm in range(elms):
-        iNodes = Topology[:,iElm]
-        iDofs = 2*np.array(iNodes)
-        iDofs = np.array([iDofs,iDofs+1]).T.flatten()
-        iDofsX,iDofsY = np.meshgrid(iDofs,iDofs)
-        K[iDofsX,iDofsY] = K[iDofsX,iDofsY] + Ke
+    nodes = Topology.T.flatten()
+    dofs = np.array([2*nodes,2*nodes+1]).T.flatten()
+    row = np.repeat(dofs,dofsElements).flatten()
+    col = np.tile(dofs,dofsElements).flatten()
+    data = np.tile(Ke.flatten(),nElms)
+    K = coo_matrix((data,(row,col)),shape=(allDofs,allDofs)).toarray()
+    
+#    elms = int(Topology.size/4) # 4 nodes per element 
+#    dofs = int(XY.size/2)*2 # 2 different coordinates -- 2 dofs/node
+#    K = np.zeros((dofs,dofs)) # MEMORY LIMIT --> FIX
+#    for iElm in range(elms):
+#        iNodes = Topology[:,iElm]
+#        iDofs = 2*np.array(iNodes)
+#        iDofs = np.array([iDofs,iDofs+1]).T.flatten()
+#        iDofsX,iDofsY = np.meshgrid(iDofs,iDofs)
+#        K[iDofsX,iDofsY] = K[iDofsX,iDofsY] + Ke
         
     return K
 
@@ -91,7 +103,7 @@ def F_Array(Topology,XY):
         forceNodes = nodes[np.where(np.logical_and(xMax,yMin))]
         forceDofs = np.array([2*forceNodes,2*forceNodes+1])
         fx = 0
-        fy = -1000000
+        fy = -1
         F[forceDofs[0,:]] = fx
         F[forceDofs[1,:]] = fy
         
@@ -112,7 +124,7 @@ def Solver(K,F,Topology,XY):
     freeDofsX,freeDofsY = np.meshgrid(freeDofs,freeDofs)
     frDofsX,frDofsY = np.meshgrid(restDofs,freeDofs)
     u = np.zeros((dofs,1))
-    uFree = inv(K[freeDofsX,freeDofsY])@(F[freeDofs]-K[frDofsX,frDofsY]@uRest)
+    uFree = np.dot(inv(K[freeDofsX,freeDofsY]),F[freeDofs])-np.dot(K[frDofsX,frDofsY],uRest)
     u[freeDofs] = uFree
     u[restDofs] = uRest
     
@@ -121,8 +133,8 @@ def Solver(K,F,Topology,XY):
 if __name__ == '__main__':
     # Input User
     eSize = 1
-    xElms = 100
-    yElms = 20
+    xElms = 20
+    yElms = 5
     E = 2.1e11
     nu = 0.3
     thickness = 0.1
