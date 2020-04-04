@@ -2,7 +2,7 @@ import numpy as np
 from numpy.linalg import inv,det
 from math import floor
 import matplotlib.pyplot as plt
-from scipy.sparse import coo_matrix,linalg
+from scipy.sparse import csc_matrix,linalg
 
 def Mesh(eSize,xElms,yElms):
     # Coordinates
@@ -70,22 +70,22 @@ def K_Matrix(Topology,XY,D,thickness):
         BtD = np.dot(B.T,D)
         Ke = Ke + thickness*np.dot(BtD,B)*det(Jacobian)*H  
     # Assembly
-    nodes = Topology.T.flatten()
-    dofs = np.array([2*nodes,2*nodes+1]).T.flatten()
-    row = np.repeat(dofs,dofsElements).flatten()
-    col = np.tile(dofs,dofsElements).flatten()
-    data = np.tile(Ke.flatten(),nElms)
-    K = coo_matrix((data,(row,col)),shape=(allDofs,allDofs)).toarray()
+    elsDofs = 2*np.kron(Topology,np.ones((2,1)))+np.tile(np.array([[0],[1]]),[4,nElms])
+    row = np.kron(elsDofs,np.ones((1,dofsElements))).T.flatten()
+    col = np.kron(elsDofs,np.ones((dofsElements,1))).T.flatten()
+    data = np.tile(Ke.flatten(),nElms).flatten()
+    K = csc_matrix((data,(row,col)),shape=(allDofs,allDofs)) 
     
-#    elms = int(Topology.size/4) # 4 nodes per element 
-#    dofs = int(XY.size/2)*2 # 2 different coordinates -- 2 dofs/node
-#    K = np.zeros((dofs,dofs)) # MEMORY LIMIT --> FIX
-#    for iElm in range(elms):
-#        iNodes = Topology[:,iElm]
-#        iDofs = 2*np.array(iNodes)
-#        iDofs = np.array([iDofs,iDofs+1]).T.flatten()
-#        iDofsX,iDofsY = np.meshgrid(iDofs,iDofs)
-#        K[iDofsX,iDofsY] = K[iDofsX,iDofsY] + Ke
+    
+    # elms = int(Topology.size/4) # 4 nodes per element 
+    # dofs = int(XY.size/2)*2 # 2 different coordinates -- 2 dofs/node
+    # K = np.zeros((dofs,dofs)) # MEMORY LIMIT --> FIX
+    # for iElm in range(elms):
+    #     iNodes = Topology[:,iElm]
+    #     iDofs = 2*np.array(iNodes)
+    #     iDofs = np.array([iDofs,iDofs+1]).T.flatten()
+    #     iDofsX,iDofsY = np.meshgrid(iDofs,iDofs)
+    #     K[iDofsX,iDofsY] = K[iDofsX,iDofsY] + Ke
         
     return K
 
@@ -124,7 +124,7 @@ def Solver(K,F,Topology,XY):
     freeDofsX,freeDofsY = np.meshgrid(freeDofs,freeDofs)
     frDofsX,frDofsY = np.meshgrid(restDofs,freeDofs)
     u = np.zeros((dofs,1))
-    uFree = np.dot(inv(K[freeDofsX,freeDofsY]),F[freeDofs])-np.dot(K[frDofsX,frDofsY],uRest)
+    uFree = linalg.inv(K[freeDofsX,freeDofsY])*F[freeDofs]-K[frDofsX,frDofsY]*uRest
     u[freeDofs] = uFree
     u[restDofs] = uRest
     
